@@ -3,11 +3,11 @@ config:
     keys:
       # aws sandbox public key
       - id: "a0c296026645799b2a297913878e81b0aefff2a0c301e97232f717e14402f3e4"
-        key: |
-            -----BEGIN PUBLIC KEY-----
-            MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN
-            9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==
-            -----END PUBLIC KEY-----
+        key: |-
+          -----BEGIN PUBLIC KEY-----
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN
+          9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==
+          -----END PUBLIC KEY-----
         from: "2023-12-15T14:00:00Z"
         to: null
         status: "active"

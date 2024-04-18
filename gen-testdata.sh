@@ -21,8 +21,6 @@ function cleanup_testdata () {
     echo "Cleaning up existing testdata..."
     rm -rf "${TESTDATA_PATH:?}/${UNSIGNED_IMAGE_DIR:?}"
     rm -rf "${TESTDATA_PATH:?}/${SIGNED_IMAGE_DIR:?}"
-    rm -f  "${TESTDATA_PATH:?}/${EXAMPLE_ATTESTATION_FILENAME:?}"
-    rm -f  "${TESTDATA_PATH:?}/${NAME_ATTESTATION_FILENAME:?}"
     rm -f  "${TESTDATA_PATH:?}/${PUBLIC_KEY_FILENAME:?}"
 }
 
@@ -38,22 +36,6 @@ function sign_image () {
       --aws_arn "$AWS_KMS_ARN" --aws_region "$AWS_REGION"
 }
 
-function generate_attestation () {
-    echo "Generating $EXAMPLE_ATTESTATION_FILENAME and $NAME_ATTESTATION_FILENAME..."
-    for file in "$TESTDATA_PATH/$SIGNED_IMAGE_DIR/blobs/sha256"/*; do
-        if [ -f "$file" ] && jq -e ".payloadType == \"$ATTESTATION_PAYLOADTYPE\"" "$file" >/dev/null 2>&1; then
-            local pred=$(jq -r '.payload' "$file" | base64 -d | jq -r '.predicateType')
-            if [ "$pred" == "https://docker.io/attestation/name/v0.1" ]; then
-                echo "Found name attestation..."
-                jq '.' "$file" > "$TESTDATA_PATH/$NAME_ATTESTATION_FILENAME"
-            else
-                echo "Found example attestation: $pred..."
-                jq '.' "$file" > "$TESTDATA_PATH/$EXAMPLE_ATTESTATION_FILENAME"
-            fi
-        fi
-    done
-}
-
 function output_public_key () {
     echo "Outputting public key to $PUBLIC_KEY_FILENAME..."
     # Fetch the base64-encoded public key
@@ -65,13 +47,21 @@ function output_public_key () {
         echo "$PUB_KEY" | fold -w 64  # Ensure that lines are wrapped at 64 characters
         echo "-----END PUBLIC KEY-----"
     } > "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME"
+    local key=`cat "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME"`
+    local keyid=`openssl pkey -in "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME" -pubin -outform DER | openssl dgst -sha256 -binary| xxd -p -c 256`
+    echo "Public key fingerprint: $keyid"
+    yq eval -i ".config.doi.keys[0].id = \"$keyid\"" doi/data.yaml
+    yq eval -i ".config.doi.keys[0].key = \"$key\"" doi/data.yaml
+    rm -f "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME"
 }
 
 # Check required commands
 check_command aws
 check_command docker
 check_command jq
+check_command yq
 check_command openssl
+check_command xxd
 
 # Configuration
 export AWS_PROFILE=${AWS_PROFILE:-"sandbox"}
@@ -94,9 +84,5 @@ login_to_aws
 cleanup_testdata
 build_unsigned_image
 sign_image
-rm -rf "${TESTDATA_PATH:?}/${UNSIGNED_IMAGE_DIR:?}"
-generate_attestation
 output_public_key
-keyid=`openssl pkey -in testdata/pubkey.pem -pubin -outform DER | openssl dgst -sha256`
-echo "Public key fingerprint: $keyid"
 echo "Process completed successfully."

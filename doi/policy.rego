@@ -10,11 +10,15 @@ digestType := splitDigest[0]
 
 digest := splitDigest[1]
 
+pred := "https://docker.io/attestation/name/v0.1"
+
 allow if {
 	print("### Starting policy evaluation ###")
-	some env in attestations.attestation("https://docker.io/attestation/name/v0.1")
+	some env in attestations.attestation(pred)
 	print("found name attestation")
 	some statement in verified_statements(config.doi.keys, env)
+	# check predicateType just in case
+	statement.predicateType == pred
 	print("### Policy Evaluation Complete ###")
 }
 
