@@ -1,4 +1,4 @@
-isv_image="docker/image-signer-verifier:0.4.4@sha256:9160604a2e3279a20d58aaa3f37d6511372de63701aa371598a9c479e5fd6f6b"
+isv_image="docker/image-signer-verifier:0.4.5@sha256:4dec75173e68bf5952fcef54ac60621f3af26a7ccb057928559e5e5dc1326592"
 #isv_image="isv:latest"
 docker run \
   --rm \

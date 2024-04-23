@@ -10,26 +10,16 @@ digestType := splitDigest[0]
 
 digest := splitDigest[1]
 
-pred := "https://docker.io/attestation/name/v0.1"
-
 allow if {
-	print("### Starting policy evaluation ###")
-	some env in attestations.attestation(pred)
-	print("found name attestation")
+	some env in attestations.attestation("https://slsa.dev/verification_summary/v0.1")
 	some statement in verified_statements(config.doi.keys, env)
-	# check predicateType just in case
-	statement.predicateType == pred
-	print("### Policy Evaluation Complete ###")
 }
 
 
 verified_statements(keys, env) := statements if {
 	statements := {statement |
-		print("verifying envelope...")
 		statement := attestations.verify_envelope(env, keys)
-		print("verified envelope signature")
 		some subject in statement.subject
-		print("found subject in statement")
 		valid_subject(subject)
 	}
 }

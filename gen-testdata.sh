@@ -33,7 +33,9 @@ function build_unsigned_image () {
 function sign_image () {
     echo "Signing the image to generate $SIGNED_IMAGE_DIR..."
     ./image-signer-verifier.sh sign -i "oci://$TESTDATA_PATH/$UNSIGNED_IMAGE_DIR" -o "oci://$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
-      --aws_arn "$AWS_KMS_ARN" --aws_region "$AWS_REGION"
+      --aws_arn "$AWS_KMS_ARN" --aws_region "$AWS_REGION" --vsa \
+      --slsa-level 3 --slsa-policy-uri "https://docker.com/library/policy" \
+      --slsa-verifier-id "https://docker.com"
 }
 
 function output_public_key () {
