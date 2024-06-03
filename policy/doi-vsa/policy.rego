@@ -1,0 +1,152 @@
+package attest
+
+import rego.v1
+
+split_digest := split(input.digest, ":")
+
+digest_type := split_digest[0]
+
+digest := split_digest[1]
+
+keys := [{
+	"id": "a0c296026645799b2a297913878e81b0aefff2a0c301e97232f717e14402f3e4",
+	"key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN\n9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==\n-----END PUBLIC KEY-----",
+	"from": "2023-12-15T14:00:00Z",
+	"to": null,
+	"status": "active",
+	"signing-format": "dssev1",
+}]
+
+atts := attestations.attestation("https://slsa.dev/verification_summary/v1")
+
+signed_statements contains statement if {
+	some att in atts
+	statement := attestations.verify_envelope(att, keys)
+}
+
+statements_with_subject contains statement if {
+	some statement in signed_statements
+	some subject in statement.subject
+	subject.digest[digest_type] == digest
+	valid_subject_name(input.isCanonical, subject.name, input.purl)
+}
+
+id(statement) := crypto.sha256(json.marshal(statement))
+
+subjects contains subject if {
+	some statement in statements_with_subject
+	some subject in statement.subject
+}
+
+global_violations contains v if {
+	count(atts) == 0
+	v := {
+		"type": "missing_attestation",
+		"description": "No https://slsa.dev/verification_summary/v1 attestation found",
+		"attestation": null,
+		"details": {},
+	}
+}
+
+# TODO: add to global_violations if there are attestations that don't have a matching statement
+# this is a bit tricky because we don't have a way of tying the attestation to the statement
+
+# we need to key this by statement_id rather than statement because we can't
+# use an object as a key due to a bug(?) in OPA: https://github.com/open-policy-agent/opa/issues/6736
+statement_violations[statement_id] contains v if {
+	some statement in signed_statements
+	statement_id := id(statement)
+	not statement in statements_with_subject
+	v := {
+		"type": "bad_subjects",
+		"description": "Statement does not have this image as a subject",
+		"attestation": statement,
+		"details": {"input": input},
+	}
+}
+
+statement_violations[statement_id] contains v if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	v := simple_incorrect_value(statement, "verificationResult", "PASSED", "wrong_verification_result")
+}
+
+statement_violations[statement_id] contains v if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	v := simple_incorrect_value(statement, "verifier.id", "docker-official-images", "wrong_verifier")
+}
+
+statement_violations[statement_id] contains v if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	v := simple_incorrect_value(statement, "policy.uri", "https://docker.com/official/policy/v0.1", "wrong_policy_uri")
+}
+
+statement_violations[statement_id] contains v if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	expected := "SLSA_BUILD_LEVEL_3"
+	actual := statement.predicate.verifiedLevels
+	not expected in actual
+	v := predicate_violation(statement, "verifiedLevels", expected, actual, "wrong_verification_level")
+}
+
+bad_statements contains statement if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	statement_violations[statement_id]
+}
+
+good_statements := statements_with_subject - bad_statements
+
+all_violations contains v if {
+	some v in global_violations
+}
+
+all_violations contains v if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	some v in statement_violations[statement_id]
+}
+
+result := {
+	"success": allow,
+	"violations": all_violations,
+	"summary": {
+		"subjects": subjects,
+		"slsa_levels": ["SLSA_BUILD_LEVEL_3"],
+		"verifier": "docker-official-images",
+		"policy_uri": "https://docker.com/official/policy/v0.1",
+	},
+}
+
+default allow := false
+
+allow if {
+	count(good_statements) > 0
+}
+
+valid_subject_name(true, name, purl)
+
+valid_subject_name(false, name, purl) if {
+	name == purl
+}
+
+predicate_violation(statement, field, expected, actual, type) := {
+	"type": type,
+	"description": sprintf("%v is not %v", [field, expected]),
+	"attestation": statement,
+	"details": {
+		"field": field,
+		"actual": actual,
+		"expected": expected,
+	},
+}
+
+simple_incorrect_value(statement, field, expected, type) := v if {
+	path := split(field, ".")
+	actual := object.get(statement.predicate, path, null)
+	expected != actual
+	v := predicate_violation(statement, field, expected, actual, type)
+}

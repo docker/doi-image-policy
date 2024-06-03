@@ -10,7 +10,7 @@ docker run \
   -v $HOME/.aws:/.aws \
   -v $HOME/.docker/:/.docker \
   -v $PWD/testdata:/testdata \
-  -v $PWD/doi:/doi \
+  -v $PWD/policy:/policy \
   -w /tmp \
   --network host \
   --user $(id -u):$(id -g) \
