@@ -7,7 +7,7 @@ docker run \
   -e AWS_CONFIG_FILE=/.aws/config \
   -v $HOME/.local/tmp:/tmp \
   -v $HOME/.local/tmp/sigstore:/.sigstore \
-  -v $HOME/.aws:/.aws \
+  -v $HOME/.aws:/.aws:ro \
   -v $HOME/.docker/:/.docker \
   -v $PWD/testdata:/testdata \
   -v $PWD/policy:/policy \

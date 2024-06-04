@@ -35,6 +35,13 @@ function sign_image () {
       --aws_arn "$AWS_KMS_ARN" --aws_region "$AWS_REGION"
 }
 
+function verify_image () {
+    echo "Verifying the image to add VSA to $VERIFIED_IMAGE_DIR..."
+    ./image-signer-verifier.sh verify -i "oci:///$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
+      -o "oci:///$TESTDATA_PATH/$VERIFIED_IMAGE_DIR" --vsa --aws_arn "$AWS_KMS_ARN" \
+      --aws_region "$AWS_REGION" --tuf-mock-path "/policy" --platform "linux/amd64" \
+      --policy-id "docker-official-images"
+}
 
 # Check required commands
 check_command aws
@@ -55,6 +62,7 @@ TEST_IMAGE_REPO="test-image"
 TEST_IMAGE_TAG="test"
 UNSIGNED_IMAGE_DIR="unsigned-test-image"
 SIGNED_IMAGE_DIR="signed-test-image"
+VERIFIED_IMAGE_DIR="verified-test-image"
 NAME_ATTESTATION_FILENAME="name_attestation.json"
 EXAMPLE_ATTESTATION_FILENAME="example_attestation.json"
 ATTESTATION_PAYLOADTYPE="application/vnd.in-toto+json"
