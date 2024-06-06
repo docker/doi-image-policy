@@ -13,6 +13,5 @@ docker run \
   -v $PWD/policy:/policy \
   -w /tmp \
   --network host \
-  --user $(id -u):$(id -g) \
   $isv_image \
   "$@"
