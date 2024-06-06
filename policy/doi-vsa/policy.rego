@@ -68,28 +68,29 @@ statement_violations[statement_id] contains v if {
 statement_violations[statement_id] contains v if {
 	some statement in statements_with_subject
 	statement_id := id(statement)
-	v := simple_incorrect_value(statement, "verificationResult", "PASSED", "wrong_verification_result")
+	v := field_value_does_not_equal(statement, "verificationResult", "PASSED", "wrong_verification_result")
+}
+
+# TODO: add to statement_violations if there are statements that have an incorrect resource_uri
+# this should match the input.purl, but we really only care about the repo name and the digest
+# we need to receive the input.purl as a parsed object so we can compare only the parts we care about
+
+statement_violations[statement_id] contains v if {
+	some statement in statements_with_subject
+	statement_id := id(statement)
+	v := field_value_does_not_equal(statement, "verifier.id", "docker-official-images", "wrong_verifier")
 }
 
 statement_violations[statement_id] contains v if {
 	some statement in statements_with_subject
 	statement_id := id(statement)
-	v := simple_incorrect_value(statement, "verifier.id", "docker-official-images", "wrong_verifier")
+	v := field_value_does_not_equal(statement, "policy.uri", "https://docker.com/official/policy/v0.1", "wrong_policy_uri")
 }
 
 statement_violations[statement_id] contains v if {
 	some statement in statements_with_subject
 	statement_id := id(statement)
-	v := simple_incorrect_value(statement, "policy.uri", "https://docker.com/official/policy/v0.1", "wrong_policy_uri")
-}
-
-statement_violations[statement_id] contains v if {
-	some statement in statements_with_subject
-	statement_id := id(statement)
-	expected := "SLSA_BUILD_LEVEL_3"
-	actual := statement.predicate.verifiedLevels
-	not expected in actual
-	v := predicate_violation(statement, "verifiedLevels", expected, actual, "wrong_verification_level")
+	v := array_field_does_not_contain(statement, "verifiedLevels", "SLSA_BUILD_LEVEL_3", "wrong_verified_levels")
 }
 
 bad_statements contains statement if {
@@ -127,13 +128,28 @@ allow if {
 	count(good_statements) > 0
 }
 
+# TODO: this should take into account the repo name from the purl
 valid_subject_name(true, name, purl)
 
 valid_subject_name(false, name, purl) if {
 	name == purl
 }
 
-predicate_violation(statement, field, expected, actual, type) := {
+field_value_does_not_equal(statement, field, expected, type) := v if {
+	path := split(field, ".")
+	actual := object.get(statement.predicate, path, null)
+	expected != actual
+	v := is_not_violation(statement, field, expected, actual, type)
+}
+
+array_field_does_not_contain(statement, field, expected, type) := v if {
+	path := split(field, ".")
+	actual := object.get(statement.predicate, path, null)
+	not expected in actual
+	v := not_contains_violation(statement, field, expected, actual, type)
+}
+
+is_not_violation(statement, field, expected, actual, type) := {
 	"type": type,
 	"description": sprintf("%v is not %v", [field, expected]),
 	"attestation": statement,
@@ -144,9 +160,13 @@ predicate_violation(statement, field, expected, actual, type) := {
 	},
 }
 
-simple_incorrect_value(statement, field, expected, type) := v if {
-	path := split(field, ".")
-	actual := object.get(statement.predicate, path, null)
-	expected != actual
-	v := predicate_violation(statement, field, expected, actual, type)
+not_contains_violation(statement, field, expected, actual, type) := {
+	"type": type,
+	"description": sprintf("%v does not contain %v", [field, expected]),
+	"attestation": statement,
+	"details": {
+		"field": field,
+		"actual": actual,
+		"expected": expected,
+	},
 }
