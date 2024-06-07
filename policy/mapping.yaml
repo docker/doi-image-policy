@@ -1,0 +1,9 @@
+version: v1
+kind: policy-mapping
+policies:
+  - id: docker-official-images
+    files:
+      - path: doi/policy.rego
+  - id: docker-official-images-vsa
+    files:
+      - path: doi-vsa/policy.rego

@@ -21,7 +21,6 @@ function cleanup_testdata () {
     echo "Cleaning up existing testdata..."
     rm -rf "${TESTDATA_PATH:?}/${UNSIGNED_IMAGE_DIR:?}"
     rm -rf "${TESTDATA_PATH:?}/${SIGNED_IMAGE_DIR:?}"
-    rm -f  "${TESTDATA_PATH:?}/${PUBLIC_KEY_FILENAME:?}"
 }
 
 function build_unsigned_image () {
@@ -32,27 +31,16 @@ function build_unsigned_image () {
 
 function sign_image () {
     echo "Signing the image to generate $SIGNED_IMAGE_DIR..."
-    ./image-signer-verifier.sh sign -i "oci://$TESTDATA_PATH/$UNSIGNED_IMAGE_DIR" -o "oci://$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
+    ./image-signer-verifier.sh sign -i "oci:///$TESTDATA_PATH/$UNSIGNED_IMAGE_DIR" -o "oci:///$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
       --aws_arn "$AWS_KMS_ARN" --aws_region "$AWS_REGION"
 }
 
-function output_public_key () {
-    echo "Outputting public key to $PUBLIC_KEY_FILENAME..."
-    # Fetch the base64-encoded public key
-    PUB_KEY=$(aws kms get-public-key --key-id "$AWS_KMS_ARN" --output text --query PublicKey --region "$AWS_REGION")
-
-    # Format the public key in PEM format
-    {
-        echo "-----BEGIN PUBLIC KEY-----"
-        echo "$PUB_KEY" | fold -w 64  # Ensure that lines are wrapped at 64 characters
-        echo "-----END PUBLIC KEY-----"
-    } > "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME"
-    local key=`cat "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME"`
-    local keyid=`openssl pkey -in "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME" -pubin -outform DER | openssl dgst -sha256 -binary| xxd -p -c 256`
-    echo "Public key fingerprint: $keyid"
-    yq eval -i ".config.doi.keys[0].id = \"$keyid\"" doi/data.yaml
-    yq eval -i ".config.doi.keys[0].key = \"$key\"" doi/data.yaml
-    rm -f "$TESTDATA_PATH/$PUBLIC_KEY_FILENAME"
+function verify_image () {
+    echo "Verifying the image to add VSA to $VERIFIED_IMAGE_DIR..."
+    ./image-signer-verifier.sh verify -i "oci:///$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
+      -o "oci:///$TESTDATA_PATH/$VERIFIED_IMAGE_DIR" --vsa --aws_arn "$AWS_KMS_ARN" \
+      --aws_region "$AWS_REGION" --tuf-mock-path "/policy" --platform "linux/amd64" \
+      --policy-id "docker-official-images"
 }
 
 # Check required commands
@@ -74,15 +62,15 @@ TEST_IMAGE_REPO="test-image"
 TEST_IMAGE_TAG="test"
 UNSIGNED_IMAGE_DIR="unsigned-test-image"
 SIGNED_IMAGE_DIR="signed-test-image"
+VERIFIED_IMAGE_DIR="verified-test-image"
 NAME_ATTESTATION_FILENAME="name_attestation.json"
 EXAMPLE_ATTESTATION_FILENAME="example_attestation.json"
 ATTESTATION_PAYLOADTYPE="application/vnd.in-toto+json"
-PUBLIC_KEY_FILENAME="pubkey.pem"
 
 # Run steps
 login_to_aws
 cleanup_testdata
 build_unsigned_image
 sign_image
-output_public_key
+verify_image
 echo "Process completed successfully."
