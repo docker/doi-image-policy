@@ -1,8 +1,6 @@
-package attest_test
+package attest
 
 import rego.v1
-
-import data.attest
 
 config := {"keys": []}
 
@@ -12,7 +10,7 @@ statement := {"subject": [{"name": purl, "digest": {"sha256": "dea014f47cd49d694
 
 input_digest := "sha256:dea014f47cd49d694d3a68564eb9e6ae38a7ee9624fd52ec05ccbef3f3fab8a0"
 
-mock_verify_envelope({"name": "valid"}, k) := {
+mock_verify_envelope({"name": "valid"}, k) := value_object({
 	"type": "https://in-toto.io/Statement/v0.1",
 	"predicateType": "https://slsa.dev/verification_summary/v1",
 	"subject": [{
@@ -27,9 +25,9 @@ mock_verify_envelope({"name": "valid"}, k) := {
 		"verifiedLevels": ["SLSA_BUILD_LEVEL_3"],
 		"verifier": {"id": "docker-official-images"},
 	},
-}
+})
 
-mock_verify_envelope({"name": "wrong_verification_result"}, k) := {
+mock_verify_envelope({"name": "wrong_verification_result"}, k) := value_object({
 	"type": "https://in-toto.io/Statement/v0.1",
 	"predicateType": "https://slsa.dev/verification_summary/v1",
 	"subject": [{
@@ -44,9 +42,9 @@ mock_verify_envelope({"name": "wrong_verification_result"}, k) := {
 		"verifiedLevels": ["SLSA_BUILD_LEVEL_3"],
 		"verifier": {"id": "docker-official-images"},
 	},
-}
+})
 
-mock_verify_envelope({"name": "wrong_verifier"}, k) := {
+mock_verify_envelope({"name": "wrong_verifier"}, k) := value_object({
 	"type": "https://in-toto.io/Statement/v0.1",
 	"predicateType": "https://slsa.dev/verification_summary/v1",
 	"subject": [{
@@ -61,9 +59,9 @@ mock_verify_envelope({"name": "wrong_verifier"}, k) := {
 		"verifiedLevels": ["SLSA_BUILD_LEVEL_3"],
 		"verifier": {"id": "wrong-verifier"},
 	},
-}
+})
 
-mock_verify_envelope({"name": "wrong_policy_uri"}, k) := {
+mock_verify_envelope({"name": "wrong_policy_uri"}, k) := value_object({
 	"type": "https://in-toto.io/Statement/v0.1",
 	"predicateType": "https://slsa.dev/verification_summary/v1",
 	"subject": [{
@@ -78,9 +76,9 @@ mock_verify_envelope({"name": "wrong_policy_uri"}, k) := {
 		"verifiedLevels": ["SLSA_BUILD_LEVEL_3"],
 		"verifier": {"id": "docker-official-images"},
 	},
-}
+})
 
-mock_verify_envelope({"name": "wrong_verified_levels"}, k) := {
+mock_verify_envelope({"name": "wrong_verified_levels"}, k) := value_object({
 	"type": "https://in-toto.io/Statement/v0.1",
 	"predicateType": "https://slsa.dev/verification_summary/v1",
 	"subject": [{
@@ -95,9 +93,9 @@ mock_verify_envelope({"name": "wrong_verified_levels"}, k) := {
 		"verifiedLevels": ["SLSA_BUILD_LEVEL_2"],
 		"verifier": {"id": "docker-official-images"},
 	},
-}
+})
 
-mock_verify_envelope({"name": "no_verified_level"}, k) := {
+mock_verify_envelope({"name": "no_verified_level"}, k) := value_object({
 	"type": "https://in-toto.io/Statement/v0.1",
 	"predicateType": "https://slsa.dev/verification_summary/v1",
 	"subject": [{
@@ -112,11 +110,11 @@ mock_verify_envelope({"name": "no_verified_level"}, k) := {
 		"verifiedLevels": [],
 		"verifier": {"id": "docker-official-images"},
 	},
-}
+})
 
 test_with_valid_statement_only if {
-	r := attest.result with attestations.attestation as {{"name": "valid"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "valid"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -126,8 +124,8 @@ test_with_valid_statement_only if {
 }
 
 test_with_wrong_verification_result if {
-	r := attest.result with attestations.attestation as {{"name": "wrong_verification_result"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "wrong_verification_result"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -140,8 +138,8 @@ test_with_wrong_verification_result if {
 }
 
 test_with_wrong_verifier if {
-	r := attest.result with attestations.attestation as {{"name": "wrong_verifier"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "wrong_verifier"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -154,8 +152,8 @@ test_with_wrong_verifier if {
 }
 
 test_with_wrong_policy_uri if {
-	r := attest.result with attestations.attestation as {{"name": "wrong_policy_uri"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "wrong_policy_uri"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -168,8 +166,8 @@ test_with_wrong_policy_uri if {
 }
 
 test_with_wrong_verified_level if {
-	r := attest.result with attestations.attestation as {{"name": "wrong_verified_levels"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "wrong_verified_levels"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -182,8 +180,8 @@ test_with_wrong_verified_level if {
 }
 
 test_with_no_verified_level if {
-	r := attest.result with attestations.attestation as {{"name": "no_verified_level"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "no_verified_level"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -196,8 +194,8 @@ test_with_no_verified_level if {
 }
 
 test_with_valid_and_invalid_statements if {
-	r := attest.result with attestations.attestation as {{"name": "valid"}, {"name": "wrong_verification_result"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "valid"}, {"name": "wrong_verification_result"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -207,8 +205,8 @@ test_with_valid_and_invalid_statements if {
 }
 
 test_with_multiple_invalid_statements if {
-	r := attest.result with attestations.attestation as {{"name": "wrong_verification_result"}, {"name": "wrong_verifier"}}
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object({{"name": "wrong_verification_result"}, {"name": "wrong_verifier"}})
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -218,8 +216,8 @@ test_with_multiple_invalid_statements if {
 }
 
 test_with_no_attestations if {
-	r := attest.result with attestations.attestation as set()
-		with attestations.verify_envelope as mock_verify_envelope
+	r := result with attest.fetch as value_object(set())
+		with attest.verify as mock_verify_envelope
 		with input.digest as input_digest
 		with input.purl as purl
 		with input.isCanonical as false
@@ -234,3 +232,5 @@ test_with_no_attestations if {
 layout_digest := "sha256:da8b190665956ea07890a0273e2a9c96bfe291662f08e2860e868eef69c34620"
 
 outout_purl := "pkg:docker/test-image@test?platform=linux%2Famd64"
+
+value_object(x) := {"value": x}

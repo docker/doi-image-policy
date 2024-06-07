@@ -17,11 +17,17 @@ keys := [{
 	"signing-format": "dssev1",
 }]
 
-atts := attestations.attestation("https://slsa.dev/verification_summary/v1")
+attestations contains att if {
+	result := attest.fetch("https://slsa.dev/verification_summary/v1")
+	not result.error
+	some att in result.value
+}
 
 signed_statements contains statement if {
-	some att in atts
-	statement := attestations.verify_envelope(att, keys)
+	some att in attestations
+	result := attest.verify(att, {"keys": keys})
+	not result.error
+	statement := result.value
 }
 
 statements_with_subject contains statement if {
@@ -39,7 +45,7 @@ subjects contains subject if {
 }
 
 global_violations contains v if {
-	count(atts) == 0
+	count(attestations) == 0
 	v := {
 		"type": "missing_attestation",
 		"description": "No https://slsa.dev/verification_summary/v1 attestation found",
