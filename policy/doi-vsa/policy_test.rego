@@ -112,6 +112,8 @@ mock_verify_envelope({"name": "no_verified_level"}, k) := value_object({
 	},
 })
 
+mock_verify_envelope({"name": "unsigned", "payload": _}, _) := error_object("signature is not valid")
+
 test_with_valid_statement_only if {
 	r := result with attest.fetch as value_object({{"name": "valid"}})
 		with attest.verify as mock_verify_envelope
@@ -229,8 +231,26 @@ test_with_no_attestations if {
 	v.description == "No https://slsa.dev/verification_summary/v1 attestation found"
 }
 
+test_with_unsigned_attestation if {
+	encoded_payload := base64.encode(json.marshal(statement))
+	r := result with attest.fetch as value_object({{"name": "unsigned", "payload": encoded_payload}})
+		with attest.verify as mock_verify_envelope
+		with input.digest as input_digest
+		with input.purl as purl
+		with input.isCanonical as false
+
+	not r.success
+	count(r.violations) == 1
+	some v in r.violations
+	v.type == "unsigned_statement"
+	v.description == "Statement is not correctly signed: signature is not valid"
+	v.attestation == statement
+}
+
 layout_digest := "sha256:da8b190665956ea07890a0273e2a9c96bfe291662f08e2860e868eef69c34620"
 
 outout_purl := "pkg:docker/test-image@test?platform=linux%2Famd64"
 
 value_object(x) := {"value": x}
+
+error_object(x) := {"error": x}

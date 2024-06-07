@@ -17,6 +17,10 @@ keys := [{
 	"signing-format": "dssev1",
 }]
 
+verify_opts := {"keys": keys}
+
+verify_attestation(att) := attest.verify(att, verify_opts)
+
 attestations contains att if {
 	result := attest.fetch("https://slsa.dev/verification_summary/v1")
 	not result.error
@@ -25,7 +29,7 @@ attestations contains att if {
 
 signed_statements contains statement if {
 	some att in attestations
-	result := attest.verify(att, {"keys": keys})
+	result := verify_attestation(att)
 	not result.error
 	statement := result.value
 }
@@ -54,11 +58,22 @@ global_violations contains v if {
 	}
 }
 
-# TODO: add to global_violations if there are attestations that don't have a matching statement
-# this is a bit tricky because we don't have a way of tying the attestation to the statement
-
 # we need to key this by statement_id rather than statement because we can't
 # use an object as a key due to a bug(?) in OPA: https://github.com/open-policy-agent/opa/issues/6736
+statement_violations[statement_id] contains v if {
+	some att in attestations
+	result := verify_attestation(att)
+	err := result.error
+	statement := unsafe_statement_from_attestation(att)
+	statement_id := id(statement)
+	v := {
+		"type": "unsigned_statement",
+		"description": sprintf("Statement is not correctly signed: %v", [err]),
+		"attestation": statement,
+		"details": {"error": err},
+	}
+}
+
 statement_violations[statement_id] contains v if {
 	some statement in signed_statements
 	statement_id := id(statement)
@@ -112,9 +127,8 @@ all_violations contains v if {
 }
 
 all_violations contains v if {
-	some statement in statements_with_subject
-	statement_id := id(statement)
-	some v in statement_violations[statement_id]
+	some violations in statement_violations
+	some v in violations
 }
 
 result := {
@@ -175,4 +189,12 @@ not_contains_violation(statement, field, expected, actual, type) := {
 		"actual": actual,
 		"expected": expected,
 	},
+}
+
+# This is unsafe because we're not checking the signature on the attestation,
+# do not call this unless you've already verified the attestation or you need the
+# statement for some other reason
+unsafe_statement_from_attestation(att) := statement if {
+	payload := att.payload
+	statement := json.unmarshal(base64.decode(payload))
 }
