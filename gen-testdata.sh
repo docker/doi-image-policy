@@ -21,6 +21,7 @@ function cleanup_testdata () {
     echo "Cleaning up existing testdata..."
     rm -rf "${TESTDATA_PATH:?}/${UNSIGNED_IMAGE_DIR:?}"
     rm -rf "${TESTDATA_PATH:?}/${SIGNED_IMAGE_DIR:?}"
+    rm -rf "${TESTDATA_PATH:?}/${VERIFIED_IMAGE_DIR:?}"
 }
 
 function build_unsigned_image () {
