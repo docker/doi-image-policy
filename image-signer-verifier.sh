@@ -1,5 +1,8 @@
-isv_image="docker/image-signer-verifier:0.5.2@sha256:e2d21db28bc9e982bfc3c2ac89c94b871f73711544573a43f55f3b74a56384a6"
+isv_image="docker/image-signer-verifier:0.5.17@sha256:bde1b7cdd36933b620353aa83f4115cc13e1d6230902c7a892b1580520607b55"
 #isv_image="isv:latest"
+
+mkdir -p $HOME/.local/tmp/sigstore
+
 docker run \
   --rm \
   -e AWS_PROFILE \
@@ -11,7 +14,7 @@ docker run \
   -v $HOME/.docker/:/.docker \
   -v $PWD/testdata:/testdata \
   -v $PWD/policy:/policy \
-  -w /tmp \
+  -u $(id -u):$(id -g) \
   --network host \
   $isv_image \
   "$@"
