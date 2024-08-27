@@ -24,6 +24,16 @@ function cleanup_testdata () {
     rm -rf "${TESTDATA_PATH:?}/${VERIFIED_IMAGE_DIR:?}"
 }
 
+function start_registry () {
+    echo "Starting the registry..."
+    docker run --rm -d -p 5000:5000 --name registry registry:2
+}
+
+function stop_registry () {
+    echo "Stopping the registry..."
+    docker stop registry
+}
+
 function sign_image () {
     echo "Signing the image to generate $SIGNED_IMAGE_DIR..."
     ./image-signer-verifier.sh sign -i "docker://$TEST_IMAGE_REPO:$TEST_IMAGE_TAG" -o "oci://$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
@@ -69,7 +79,12 @@ VSA_POLICY_ID="docker-official-images-vsa"
 # Run steps
 login_to_aws
 cleanup_testdata
+
+start_registry
+trap stop_registry EXIT
+
 sign_image
 verify_image
 verify_image_vsa
+
 echo "Process completed successfully."
