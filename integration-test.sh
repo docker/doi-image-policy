@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eo pipefail
 
-echo "Starting the process to generate testdata for the signing package..."
-
 # Define functions
 function check_command () {
     command -v "$1" >/dev/null 2>&1 || { echo >&2 "This script requires $1 but it's not installed.  Aborting."; exit 1; }
@@ -17,13 +15,6 @@ function login_to_aws () {
     fi
 }
 
-function cleanup_testdata () {
-    echo "Cleaning up existing testdata..."
-    rm -rf "${TESTDATA_PATH:?}/${UNSIGNED_IMAGE_DIR:?}"
-    rm -rf "${TESTDATA_PATH:?}/${SIGNED_IMAGE_DIR:?}"
-    rm -rf "${TESTDATA_PATH:?}/${VERIFIED_IMAGE_DIR:?}"
-}
-
 function start_registry () {
     echo "Starting the registry..."
     docker run --rm -d -p 5000:5000 --name registry registry:2
@@ -35,24 +26,26 @@ function stop_registry () {
 }
 
 function sign_image () {
-    echo "Signing the image to generate $SIGNED_IMAGE_DIR..."
-    ./image-signer-verifier.sh sign -i "docker://$TEST_IMAGE_REPO:$TEST_IMAGE_TAG" -o "oci://$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
-      --kms-key-ref "$AWS_KMS_ARN" --kms-region "$AWS_REGION" --attach --referrers=false
+    echo "Signing the attestations on $INPUT_IMAGE and storing in $REFERRERS_REPO..."
+    ./image-signer-verifier.sh sign -i "$INPUT_IMAGE" \
+      --referrers-dest "$REFERRERS_REPO" \
+      --kms-key-ref "$AWS_KMS_ARN" --kms-region "$AWS_REGION"
 }
 
 function verify_image () {
-    echo "Verifying the image to add VSA to $VERIFIED_IMAGE_DIR..."
-    ./image-signer-verifier.sh verify -i "oci://$TESTDATA_PATH/$SIGNED_IMAGE_DIR" \
-      -o "oci://$TESTDATA_PATH/$VERIFIED_IMAGE_DIR" --attestation-style "attached" \
-      --vsa --kms-key-ref "$AWS_KMS_ARN" --attach --referrers=false \
+    echo "Verifying the attestations for $INPUT_IMAGE and storing a VSA in $REFERRERS_REPO..."
+    ./image-signer-verifier.sh verify -i "$INPUT_IMAGE" \
+      --referrers-dest "$REFERRERS_REPO" \
+      --referrers-source "$REFERRERS_REPO" \
+      --vsa --kms-key-ref "$AWS_KMS_ARN" \
       --kms-region "$AWS_REGION" --tuf-mock-path "$POLICY_PATH" --platform "linux/amd64" \
       --policy-id "$POLICY_ID"
 }
 
 function verify_image_vsa () {
-    echo "Verifying the VSA on $VERIFIED_IMAGE_DIR..."
-    ./image-signer-verifier.sh verify -i "oci://$TESTDATA_PATH/$VERIFIED_IMAGE_DIR" \
-      --attestation-style "attached" \
+    echo "Verifying the VSA for $INPUT_IMAGE..."
+    ./image-signer-verifier.sh verify -i "$INPUT_IMAGE" \
+      --referrers-source "$REFERRERS_REPO" \
       --tuf-mock-path "$POLICY_PATH" --platform "linux/amd64" \
       --policy-id "$VSA_POLICY_ID"
 }
@@ -66,19 +59,16 @@ export AWS_PROFILE=${AWS_PROFILE:-"sandbox"}
 export AWS_REGION=${AWS_REGION:-"us-east-1"}
 AWS_KMS_ARN=${AWS_KMS_ARN:-"arn:aws:kms:us-east-1:175142243308:alias/doi-signing"}
 
-TESTDATA_PATH="testdata"
 TEST_IMAGE_REPO="nginx"
 TEST_IMAGE_TAG="1.27.0-alpine-slim"
-UNSIGNED_IMAGE_DIR="unsigned-test-image"
-SIGNED_IMAGE_DIR="signed-test-image"
-VERIFIED_IMAGE_DIR="verified-test-image"
+INPUT_IMAGE="docker://$TEST_IMAGE_REPO:$TEST_IMAGE_TAG"
+REFERRERS_REPO="docker://localhost:5000/$TEST_IMAGE_REPO"
 POLICY_PATH="policy"
 POLICY_ID="docker-official-images"
 VSA_POLICY_ID="docker-official-images-vsa"
 
 # Run steps
 login_to_aws
-cleanup_testdata
 
 start_registry
 trap stop_registry EXIT
