@@ -38,7 +38,7 @@ function verify_image () {
       --referrers-dest "$REFERRERS_REPO" \
       --referrers-source "$REFERRERS_REPO" \
       --vsa --kms-key-ref "$AWS_KMS_ARN" \
-      --kms-region "$AWS_REGION" --tuf-mock-path "$POLICY_PATH" --platform "linux/amd64" \
+      --kms-region "$AWS_REGION" --policy-dir "$POLICY_PATH" --platform "linux/amd64" \
       --policy-id "$POLICY_ID"
 }
 
@@ -46,7 +46,7 @@ function verify_image_vsa () {
     echo "Verifying the VSA for $INPUT_IMAGE..."
     ./image-signer-verifier.sh verify -i "$INPUT_IMAGE" \
       --referrers-source "$REFERRERS_REPO" \
-      --tuf-mock-path "$POLICY_PATH" --platform "linux/amd64" \
+      --policy-dir "$POLICY_PATH" --platform "linux/amd64" \
       --policy-id "$VSA_POLICY_ID"
 }
 
