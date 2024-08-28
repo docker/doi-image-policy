@@ -4,15 +4,24 @@ import rego.v1
 
 # TODO: this is a placeholder, it should do more validation of the statements
 
-keys := [{
-	"id": "a0c296026645799b2a297913878e81b0aefff2a0c301e97232f717e14402f3e4",
-	"key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN\n9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==\n-----END PUBLIC KEY-----",
-	"from": "2023-12-15T14:00:00Z",
-	"to": null,
-	# this key is still active
-	"status": "active",
-	"signing-format": "dssev1",
-}]
+keys := [
+	{
+		"id": "a0c296026645799b2a297913878e81b0aefff2a0c301e97232f717e14402f3e4",
+		"key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN\n9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==\n-----END PUBLIC KEY-----",
+		"from": "2023-12-15T14:00:00Z",
+		"to": null,
+		"status": "active",
+		"signing-format": "dssev1",
+	},
+	{
+		"id": "b281835e00059de24fb06bd6db06eb0e4a33d7bd7210d7027c209f14b19e812a",
+		"key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgE4Jz6FrLc3lp/YRlbuwOjK4n6ac\njVkSDAmFhi3Ir2Jy+cKeEB7iRPcLvBy9qoMZ9E93m1NdWY6KtDo+Qi52Rg==\n-----END PUBLIC KEY-----",
+		"from": "2023-12-15T14:00:00Z",
+		"to": null,
+		"status": "active",
+		"signing-format": "dssev1",
+	},
+]
 
 provs(pred) := p if {
 	res := attest.fetch(pred)

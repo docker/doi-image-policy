@@ -1,6 +1,9 @@
 #!/bin/bash
 set -eo pipefail
 
+# TODO: These tests currently sign unsigned DOI attestations using the staging DOI key. This public key is in the policies, so the verification passes.
+# Once there are DOI with attestations signed with production keys, the policies should be updated to use those keys, and we will no longer need to sign the attestations in this script.
+
 # Define functions
 function check_command () {
     command -v "$1" >/dev/null 2>&1 || { echo >&2 "This script requires $1 but it's not installed.  Aborting."; exit 1; }
