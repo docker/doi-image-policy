@@ -55,8 +55,10 @@ check_command aws
 check_command docker
 
 # Configuration
-export AWS_PROFILE=${AWS_PROFILE:-"sandbox"}
-export AWS_REGION=${AWS_REGION:-"us-east-1"}
+if [ -z "$AWS_SESSION_TOKEN" ]; then
+    export AWS_PROFILE=${AWS_PROFILE:-"sandbox"}
+    export AWS_REGION=${AWS_REGION:-"us-east-1"}
+fi
 AWS_KMS_ARN=${AWS_KMS_ARN:-"arn:aws:kms:us-east-1:175142243308:alias/doi-signing"}
 
 TEST_IMAGE_REPO="nginx"
