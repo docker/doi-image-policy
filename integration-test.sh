@@ -1,6 +1,9 @@
 #!/bin/bash
 set -eo pipefail
 
+# TODO: These tests currently sign unsigned DOI attestations using the staging DOI key. This public key is in the policies, so the verification passes.
+# Once there are DOI with attestations signed with production keys, the policies should be updated to use those keys, and we will no longer need to sign the attestations in this script.
+
 # Define functions
 function check_command () {
     command -v "$1" >/dev/null 2>&1 || { echo >&2 "This script requires $1 but it's not installed.  Aborting."; exit 1; }
@@ -55,8 +58,10 @@ check_command aws
 check_command docker
 
 # Configuration
-export AWS_PROFILE=${AWS_PROFILE:-"sandbox"}
-export AWS_REGION=${AWS_REGION:-"us-east-1"}
+if [ -z "$AWS_SESSION_TOKEN" ]; then
+    export AWS_PROFILE=${AWS_PROFILE:-"sandbox"}
+    export AWS_REGION=${AWS_REGION:-"us-east-1"}
+fi
 AWS_KMS_ARN=${AWS_KMS_ARN:-"arn:aws:kms:us-east-1:175142243308:alias/doi-signing"}
 
 TEST_IMAGE_REPO="nginx"

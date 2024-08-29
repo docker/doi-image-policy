@@ -6,6 +6,9 @@ mkdir -p $HOME/.local/tmp/sigstore
 docker run \
   --rm \
   -e AWS_PROFILE \
+  -e AWS_ACCESS_KEY_ID \
+  -e AWS_SECRET_ACCESS_KEY \
+  -e AWS_SESSION_TOKEN \
   -e AWS_REGION \
   -e AWS_CONFIG_FILE=/.aws/config \
   -v $HOME/.local/tmp:/tmp \
