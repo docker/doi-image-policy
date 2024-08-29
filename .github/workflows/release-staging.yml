@@ -1,0 +1,55 @@
+name: Release to tuf-staging
+on:
+  release:
+    types: [published]
+jobs:
+  update-attest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: git config --global core.autocrlf false
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@31c86eb3b33c9b601a1f60f98dcbfd1d70f379b4 # v1.10.3
+        with:
+          app-id: ${{ vars.ATTEST_RELEASE_APP_ID }}
+          private-key: ${{ secrets.ATTEST_RELEASE_APP_PRIVATE_KEY }}
+          repositories: "doi-image-policy,tuf-staging"
+      - name: Set access token
+        run: git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf "https://github.com"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+      - name: Checkout doi-image-policy
+        uses: actions/checkout@v4
+        with:
+          repository: "docker/doi-image-policy"
+          ref: ${{ github.event.release.tag_name }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: doi-image-policy
+      - name: Checkout tuf-staging
+        uses: actions/checkout@v4
+        with:
+          repository: "docker/tuf-staging"
+          token: ${{ steps.app-token.outputs.token }}
+          path: tuf-staging
+      - name: Copy policy files
+        # TODO: should this exclude tests?
+        run: cp -r doi-image-policy/policy/* tuf-staging/targets/
+      - name: Commit changes
+        working-directory: tuf-staging
+        run: |
+          git config --global user.name "attest-release[bot]"
+          git config --global user.email "176524748+attest-release[bot]@users.noreply.github.com"
+
+          git switch -c sign/update-trust-policy-${{ github.event.release.name }}
+          git add policy
+
+          git commit -F- <<ENDCOMMIT
+          [BOT] Update trust policy to ${{ github.event.release.name }}
+
+          Release notes:
+          ${{ github.event.release.body }}
+          ENDCOMMIT
+
+          git push
