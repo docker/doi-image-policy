@@ -1,9 +1,11 @@
+# This mapping file exists solely for integration tests.
+
 version: v1
 kind: policy-mapping
 policies:
   - id: docker-official-images
     files:
-      - path: doi/policy.rego
+      - path: full/policy.rego
   - id: docker-official-images-vsa
     files:
-      - path: doi-vsa/policy.rego
+      - path: vsa/policy.rego
