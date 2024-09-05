@@ -14,7 +14,6 @@ docker run \
   -v $HOME/.local/tmp:/tmp \
   -v $HOME/.local/tmp/sigstore:/.sigstore \
   -v $HOME/.aws:/.aws:ro \
-  -v $HOME/.docker/:/.docker \
   -v $PWD/policy:/policy \
   -u $(id -u):$(id -g) \
   --network host \
