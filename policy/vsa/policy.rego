@@ -44,17 +44,10 @@ signed_statements contains statement if {
 	statement := result.value
 }
 
-statements_with_subject contains statement if {
-	some statement in signed_statements
-	some subject in statement.subject
-	subject.digest[digest_type] == digest
-	valid_subject_name(input.isCanonical, subject.name, input.purl)
-}
-
 id(statement) := crypto.sha256(json.marshal(statement))
 
 subjects contains subject if {
-	some statement in statements_with_subject
+	some statement in signed_statements
 	some subject in statement.subject
 }
 
@@ -87,18 +80,6 @@ statement_violations[statement_id] contains v if {
 statement_violations[statement_id] contains v if {
 	some statement in signed_statements
 	statement_id := id(statement)
-	not statement in statements_with_subject
-	v := {
-		"type": "bad_subjects",
-		"description": "Statement does not have this image as a subject",
-		"attestation": statement,
-		"details": {"input": input},
-	}
-}
-
-statement_violations[statement_id] contains v if {
-	some statement in statements_with_subject
-	statement_id := id(statement)
 	v := field_value_does_not_equal(statement, "verificationResult", "PASSED", "wrong_verification_result")
 }
 
@@ -107,30 +88,30 @@ statement_violations[statement_id] contains v if {
 # we need to receive the input.purl as a parsed object so we can compare only the parts we care about
 
 statement_violations[statement_id] contains v if {
-	some statement in statements_with_subject
+	some statement in signed_statements
 	statement_id := id(statement)
 	v := field_value_does_not_equal(statement, "verifier.id", "docker-official-images", "wrong_verifier")
 }
 
 statement_violations[statement_id] contains v if {
-	some statement in statements_with_subject
+	some statement in signed_statements
 	statement_id := id(statement)
 	v := field_value_does_not_equal(statement, "policy.uri", "https://docker.com/official/policy/v0.1", "wrong_policy_uri")
 }
 
 statement_violations[statement_id] contains v if {
-	some statement in statements_with_subject
+	some statement in signed_statements
 	statement_id := id(statement)
 	v := array_field_does_not_contain(statement, "verifiedLevels", "SLSA_BUILD_LEVEL_3", "wrong_verified_levels")
 }
 
 bad_statements contains statement if {
-	some statement in statements_with_subject
+	some statement in signed_statements
 	statement_id := id(statement)
 	statement_violations[statement_id]
 }
 
-good_statements := statements_with_subject - bad_statements
+good_statements := signed_statements - bad_statements
 
 all_violations contains v if {
 	some v in global_violations
@@ -156,13 +137,6 @@ default allow := false
 
 allow if {
 	count(good_statements) > 0
-}
-
-# TODO: this should take into account the repo name from the purl
-valid_subject_name(true, name, purl)
-
-valid_subject_name(false, name, purl) if {
-	name == purl
 }
 
 field_value_does_not_equal(statement, field, expected, type) := v if {

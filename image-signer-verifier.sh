@@ -1,4 +1,4 @@
-isv_image="docker/image-signer-verifier:0.5.17@sha256:bde1b7cdd36933b620353aa83f4115cc13e1d6230902c7a892b1580520607b55"
+isv_image="docker/image-signer-verifier:0.5.20@sha256:c3017e07df0b5c0f7f50c0f73fef866ce673a780c59c201f1b564f83b5d5fb93"
 #isv_image="isv:latest"
 
 mkdir -p $HOME/.local/tmp/sigstore
@@ -14,7 +14,6 @@ docker run \
   -v $HOME/.local/tmp:/tmp \
   -v $HOME/.local/tmp/sigstore:/.sigstore \
   -v $HOME/.aws:/.aws:ro \
-  -v $HOME/.docker/:/.docker \
   -v $PWD/policy:/policy \
   -u $(id -u):$(id -g) \
   --network host \
