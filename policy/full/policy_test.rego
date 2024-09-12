@@ -19,11 +19,20 @@ mock_verify_envelope({"name": "provenance_valid"}, k) := value_object({
 	}],
 	"predicate": {
 		"buildType": "https://mobyproject.org/buildkit@v1",
-		"metadata": {
-			"completeness": {
-				"materials": true,
-			},
-		},
+		"metadata": {"completeness": {"materials": true}},
+	},
+})
+
+mock_verify_envelope({"name": "provenance_wrong_predicate_type"}, k) := value_object({
+	"type": "https://in-toto.io/Statement/v0.1",
+	"predicateType": "https://slsa.dev/provenance/v1",
+	"subject": [{
+		"name": purl,
+		"digest": {"sha256": "dea014f47cd49d694d3a68564eb9e6ae38a7ee9624fd52ec05ccbef3f3fab8a0"},
+	}],
+	"predicate": {
+		"buildType": "https://mobyproject.org/buildkit@v1",
+		"metadata": {"completeness": {"materials": true}},
 	},
 })
 
@@ -36,11 +45,7 @@ mock_verify_envelope({"name": "provenance_wrong_build_type"}, k) := value_object
 	}],
 	"predicate": {
 		"buildType": "some nonsense",
-		"metadata": {
-			"completeness": {
-				"materials": true,
-			},
-		},
+		"metadata": {"completeness": {"materials": true}},
 	},
 })
 
@@ -53,11 +58,7 @@ mock_verify_envelope({"name": "provenance_incomplete_materials"}, k) := value_ob
 	}],
 	"predicate": {
 		"buildType": "https://mobyproject.org/buildkit@v1",
-		"metadata": {
-			"completeness": {
-				"materials": false,
-			},
-		},
+		"metadata": {"completeness": {"materials": false}},
 	},
 })
 
@@ -68,9 +69,7 @@ mock_verify_envelope({"name": "sbom_valid"}, k) := value_object({
 		"name": purl,
 		"digest": {"sha256": "dea014f47cd49d694d3a68564eb9e6ae38a7ee9624fd52ec05ccbef3f3fab8a0"},
 	}],
-	"predicate": {
-		"SPDXID": "SPDXRef-DOCUMENT",
-	},
+	"predicate": {"SPDXID": "SPDXRef-DOCUMENT"},
 })
 
 mock_verify_envelope({"name": "sbom_wrong_spdxid"}, k) := value_object({
@@ -80,9 +79,7 @@ mock_verify_envelope({"name": "sbom_wrong_spdxid"}, k) := value_object({
 		"name": purl,
 		"digest": {"sha256": "dea014f47cd49d694d3a68564eb9e6ae38a7ee9624fd52ec05ccbef3f3fab8a0"},
 	}],
-	"predicate": {
-		"SPDXID": "not the one",
-	},
+	"predicate": {"SPDXID": "not the one"},
 })
 
 mock_verify_envelope({"name": "unsigned", "payload": _}, _) := error_object("signature is not valid")
@@ -97,6 +94,22 @@ test_with_valid_provenance_and_sbom if {
 
 	r.success
 	count(r.violations) == 0
+}
+
+test_with_provenance_with_wrong_predicate_type if {
+	r := result with provenance_attestations as {{"name": "provenance_wrong_predicate_type"}}
+		with sbom_attestations as {{"name": "sbom_valid"}}
+		with attest.verify as mock_verify_envelope
+		with input.digest as input_digest
+		with input.purl as purl
+		with input.isCanonical as false
+
+	not r.success
+	count(r.violations) == 1
+	some v in r.violations
+	print(yaml.marshal(v))
+	v.type == "wrong_predicate_type"
+	v.description == "predicateType is not https://slsa.dev/provenance/v0.2"
 }
 
 test_with_provenance_with_wrong_build_type if {

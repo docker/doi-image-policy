@@ -32,6 +32,7 @@ verify_opts := {"keys": keys}
 verify_attestation(att) := attest.verify(att, verify_opts)
 
 provenance_attestations contains att if {
+	# TODO: this should take the media type as it doesn't actually check the predicate type
 	result := attest.fetch("https://slsa.dev/provenance/v0.2")
 	not result.error
 	some att in result.value
@@ -44,15 +45,8 @@ provenance_signed_statements contains statement if {
 	statement := result.value
 }
 
-provenance_statements_with_subject contains statement if {
-	some statement in provenance_signed_statements
-	some subject in statement.subject
-	subject.digest[digest_type] == digest
-	valid_subject_name(input.isCanonical, subject.name, input.purl)
-}
-
 provenance_subjects contains subject if {
-	some statement in provenance_statements_with_subject
+	some statement in provenance_signed_statements
 	some subject in statement.subject
 }
 
@@ -75,34 +69,29 @@ provenance_statement_violations[statement_id] contains v if {
 provenance_statement_violations[statement_id] contains v if {
 	some statement in provenance_signed_statements
 	statement_id := id(statement)
-	not statement in provenance_statements_with_subject
-	v := {
-		"type": "bad_subjects",
-		"description": "provenance statement does not have this image as a subject",
-		"attestation": statement,
-		"details": {"input": input},
-	}
+	statement.predicateType != "https://slsa.dev/provenance/v0.2"
+	v := is_not_violation(statement, "predicateType", "https://slsa.dev/provenance/v0.2", statement.predicateType, "wrong_predicate_type")
 }
 
 provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_statements_with_subject
+	some statement in provenance_signed_statements
 	statement_id := id(statement)
 	v := field_value_does_not_equal(statement, "buildType", "https://mobyproject.org/buildkit@v1", "wrong_build_type")
 }
 
 provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_statements_with_subject
+	some statement in provenance_signed_statements
 	statement_id := id(statement)
 	v := field_value_does_not_equal(statement, "metadata.completeness.materials", true, "incomplete_materials")
 }
 
 bad_provenance_statements contains statement if {
-	some statement in provenance_statements_with_subject
+	some statement in provenance_signed_statements
 	statement_id := id(statement)
 	provenance_statement_violations[statement_id]
 }
 
-good_provenance_statements := provenance_statements_with_subject - bad_provenance_statements
+good_provenance_statements := provenance_signed_statements - bad_provenance_statements
 
 sbom_attestations contains att if {
 	result := attest.fetch("https://spdx.dev/Document")
@@ -117,15 +106,8 @@ sbom_signed_statements contains statement if {
 	statement := result.value
 }
 
-sbom_statements_with_subject contains statement if {
-	some statement in sbom_signed_statements
-	some subject in statement.subject
-	subject.digest[digest_type] == digest
-	valid_subject_name(input.isCanonical, subject.name, input.purl)
-}
-
 sbom_subjects contains subject if {
-	some statement in sbom_statements_with_subject
+	some statement in sbom_signed_statements
 	some subject in statement.subject
 }
 
@@ -148,28 +130,23 @@ sbom_statement_violations[statement_id] contains v if {
 sbom_statement_violations[statement_id] contains v if {
 	some statement in sbom_signed_statements
 	statement_id := id(statement)
-	not statement in sbom_statements_with_subject
-	v := {
-		"type": "bad_subjects",
-		"description": "SBOM statement does not have this image as a subject",
-		"attestation": statement,
-		"details": {"input": input},
-	}
+	statement.predicate_type != "https://spdx.dev/Document"
+	v := is_not_violation(statement, "predicateType", "https://spdx.dev/Document", statement.predicate_type, "wrong_predicate_type")
 }
 
 sbom_statement_violations[statement_id] contains v if {
-	some statement in sbom_statements_with_subject
+	some statement in sbom_signed_statements
 	statement_id := id(statement)
 	v := field_value_does_not_equal(statement, "SPDXID", "SPDXRef-DOCUMENT", "wrong_spdx_id")
 }
 
 bad_sbom_statements contains statement if {
-	some statement in sbom_statements_with_subject
+	some statement in sbom_signed_statements
 	statement_id := id(statement)
 	sbom_statement_violations[statement_id]
 }
 
-good_sbom_statements := sbom_statements_with_subject - bad_sbom_statements
+good_sbom_statements := sbom_signed_statements - bad_sbom_statements
 
 global_violations contains v if {
 	count(sbom_attestations) == 0
@@ -226,13 +203,6 @@ allow if {
 }
 
 id(statement) := crypto.sha256(json.marshal(statement))
-
-# TODO: this should take into account the repo name from the purl
-valid_subject_name(true, name, purl)
-
-valid_subject_name(false, name, purl) if {
-	name == purl
-}
 
 field_value_does_not_equal(statement, field, expected, type) := v if {
 	path := split(field, ".")
