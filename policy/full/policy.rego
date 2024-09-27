@@ -11,7 +11,10 @@ digest := split_digest[1]
 keys := [
 	{
 		"id": "a0c296026645799b2a297913878e81b0aefff2a0c301e97232f717e14402f3e4",
-		"key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN\n9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==\n-----END PUBLIC KEY-----",
+		"key": `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgH23D1i2+ZIOtVjmfB7iFvX8AhVN
+9CPJ4ie9axw+WRHozGnRy99U2dRge3zueBBg2MweF0zrToXGig2v3YOrdw==
+-----END PUBLIC KEY-----`,
 		"from": "2023-12-15T14:00:00Z",
 		"to": null,
 		"status": "active",
@@ -19,7 +22,10 @@ keys := [
 	},
 	{
 		"id": "b281835e00059de24fb06bd6db06eb0e4a33d7bd7210d7027c209f14b19e812a",
-		"key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgE4Jz6FrLc3lp/YRlbuwOjK4n6ac\njVkSDAmFhi3Ir2Jy+cKeEB7iRPcLvBy9qoMZ9E93m1NdWY6KtDo+Qi52Rg==\n-----END PUBLIC KEY-----",
+		"key": `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgE4Jz6FrLc3lp/YRlbuwOjK4n6ac
+jVkSDAmFhi3Ir2Jy+cKeEB7iRPcLvBy9qoMZ9E93m1NdWY6KtDo+Qi52Rg==
+-----END PUBLIC KEY-----`,
 		"from": "2023-12-15T14:00:00Z",
 		"to": null,
 		"status": "active",
@@ -33,7 +39,7 @@ verify_attestation(att) := attest.verify(att, verify_opts)
 
 provenance_attestations contains att if {
 	# TODO: this should take the media type as it doesn't actually check the predicate type
-	result := attest.fetch("https://slsa.dev/provenance/v0.2")
+	result := attest.fetch("https://slsa.dev/provenance/v1")
 	not result.error
 	some att in result.value
 }
@@ -48,6 +54,69 @@ provenance_signed_statements contains statement if {
 provenance_subjects contains subject if {
 	some statement in provenance_signed_statements
 	some subject in statement.subject
+}
+
+meta_commit_from_predicate(predicate) := commit if {
+	# some dep in predicate.buildDefinition.resolvedDependencies
+
+	# # TODO: this should be the actual meta repo
+	# dep.uri == "git+https://github.com/docker/doi-signing-test@refs/heads/main"
+	# commit := dep.digest.gitCommit
+
+	# TODO: this doesn't work with doi-signing-test because the actual commit isn't in meta
+	commit := "8c30112498668c1ae274b8596c2aff119fa76e7a"
+}
+
+build_info_response(meta_commit) := http.send({
+	"method": "GET",
+	"url": sprintf("https://api.github.com/repos/docker-library/meta/contents/builds.json?ref=%v", [meta_commit]),
+	"headers": {"accept": "application/vnd.github.raw+json"},
+	"force_json_decode": true,
+	"cache": true,
+})
+
+submodule_info_response(meta_commit) := http.send({
+	"method": "GET",
+	"url": sprintf("https://api.github.com/repos/docker-library/meta/contents/.doi?ref=%v", [meta_commit]),
+	"cache": true,
+})
+
+definition_file_response_response(name, doi_commit) := http.send({
+	"method": "GET",
+	"url": sprintf("https://api.github.com/repos/docker-library/official-images/contents/library/%v?ref=%v", [name, doi_commit]),
+	"headers": {"accept": "application/vnd.github.raw+json"},
+	"cache": true,
+})
+
+build_definition_file(name, doi_commit) := definition if {
+	definition_file_response := definition_file_response_response(name, doi_commit)
+	definition_file := definition_file_response.raw_body
+	result := attest.internals.parse_library_definition(definition_file)
+	not result.error
+	definition := result.value
+}
+
+submodule_sha(meta_commit) := sha if {
+	response := submodule_info_response(meta_commit)
+	submodule_info := response.body
+	submodule_info.type == "submodule"
+	submodule_info.submodule_git_url == "https://github.com/docker-library/official-images.git"
+	sha := response.body.sha
+}
+
+build_info(statement) := build if {
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	response := build_info_response(meta_commit)
+	response.status_code == 200
+	builds_json := response.body
+	build := builds_json[build_id]
+}
+
+build_definition(statement) := definition if {
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	doi_commit := submodule_sha(meta_commit)
+	definition := build_definition_file(input.familiar_name, doi_commit)
 }
 
 # we need to key this by statement_id rather than statement because we can't
@@ -69,20 +138,213 @@ provenance_statement_violations[statement_id] contains v if {
 provenance_statement_violations[statement_id] contains v if {
 	some statement in provenance_signed_statements
 	statement_id := id(statement)
-	statement.predicateType != "https://slsa.dev/provenance/v0.2"
-	v := is_not_violation(statement, "predicateType", "https://slsa.dev/provenance/v0.2", statement.predicateType, "wrong_predicate_type")
+	statement.predicateType != "https://slsa.dev/provenance/v1"
+	v := is_not_violation(statement, "predicateType", "https://slsa.dev/provenance/v1", statement.predicateType, "wrong_predicate_type")
 }
 
 provenance_statement_violations[statement_id] contains v if {
 	some statement in provenance_signed_statements
 	statement_id := id(statement)
-	v := field_value_does_not_equal(statement, "buildType", "https://mobyproject.org/buildkit@v1", "wrong_build_type")
+	predicate := statement.predicate
+	expected := "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1"
+	predicate.buildDefinition.buildType != expected
+	v := is_not_violation(statement, "buildDefinition.buildType", expected, predicate.buildDefinition.buildType, "wrong_build_type")
 }
 
 provenance_statement_violations[statement_id] contains v if {
 	some statement in provenance_signed_statements
 	statement_id := id(statement)
-	v := field_value_does_not_equal(statement, "metadata.completeness.materials", true, "incomplete_materials")
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	not build_info_response(meta_commit)
+
+	v := {
+		"type": "build_info_request_failed",
+		"description": "Error fetching build info for this statement",
+		# "attestation": statement,
+		"details": {"predicate_type": statement.predicateType},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	response := build_info_response(meta_commit)
+	response.status_code != 200
+
+	v := {
+		"type": "build_info_bad_response",
+		"description": "Got a bad response fetching build info for this statement",
+		# "attestation": statement,
+		"details": {
+			"predicate_type": statement.predicateType,
+			"response": response,
+		},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	response := build_info_response(meta_commit)
+	response.status_code == 200
+	builds_json := response.body
+	not builds_json[build_id]
+
+	v := {
+		"type": "no_such_build_id",
+		"description": sprintf("Can't find build id %v for this statement", [build_id]),
+		# "attestation": statement,
+		"details": {
+			"predicate_type": statement.predicateType,
+			"build_id": build_id,
+		},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	not submodule_info_response(meta_commit)
+
+	v := {
+		"type": "submodule_info_request_failed",
+		"description": "Can't find official-images submodule info for this statement",
+		# "attestation": statement,
+		"details": {"predicate_type": statement.predicateType},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	response := submodule_info_response(meta_commit)
+	response.status_code != 200
+
+	v := {
+		"type": "submodule_info_bad_response",
+		"description": "Got a bad response fetching submodule info for this statement",
+		# "attestation": statement,
+		"details": {"predicate_type": statement.predicateType},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	response := submodule_info_response(meta_commit)
+	response.status_code == 200
+	submodule_info := response.body
+	submodule_info.type != "submodule"
+
+	v := {
+		"type": "submodule_info_bad_response",
+		"description": "Not a submodule",
+		# "attestation": statement,
+		"details": {
+			"predicate_type": statement.predicateType,
+			"submodule_info": submodule_info,
+		},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	response := submodule_info_response(meta_commit)
+	response.status_code == 200
+	submodule_info := response.body
+	submodule_info.submodule_git_url != "https://github.com/docker-library/official-images.git"
+
+	v := {
+		"type": "submodule_info_bad_response",
+		"description": "Wrong repo",
+		# "attestation": statement,
+		"details": {
+			"predicate_type": statement.predicateType,
+			"submodule_info": submodule_info,
+		},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	doi_commit := submodule_sha(meta_commit)
+	not definition_file_response_response(input.familiar_name, doi_commit)
+
+	v := {
+		"type": "definition_file_request_failed",
+		"description": "Request failed",
+		# "attestation": statement,
+		"details": {"predicate_type": statement.predicateType},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+	doi_commit := submodule_sha(meta_commit)
+	response := definition_file_response_response(input.familiar_name, doi_commit)
+	definition_file := response.raw_body
+	result := attest.internals.parse_library_definition(definition_file)
+	result.error
+
+	v := {
+		"type": "definition_file_parse_failed",
+		"description": "Parse failed",
+		# "attestation": statement,
+		"details": {
+			"predicate_type": statement.predicateType,
+			"error": result.error,
+		},
+	}
+}
+
+provenance_statement_violations[statement_id] contains v if {
+	some statement in provenance_signed_statements
+	statement_id := id(statement)
+	meta_commit := meta_commit_from_predicate(statement.predicate)
+
+	build := build_info(statement)
+	definition := build_definition(statement)
+
+	every entry in definition.Entries {
+		not valid_entry(entry, build)
+	}
+
+	v := {
+		"type": "no_matching_entry",
+		"description": "No matching entry in the build definition for this build",
+		# "attestation": statement,
+		"details": {
+			"predicate_type": statement.predicateType,
+			"expectedEntry": build.source.entry,
+		},
+	}
+}
+
+valid_entry(entry, build) if {
+	# TODO: should this instead check that *all* tags in the entry match *all* tags in the subjects?
+	input.tag in entry.Tags
+	entry.GitCommit == build.source.entry.GitCommit
+	entry.GitRepo == build.source.entry.GitRepo
+	entry.Builder == build.source.entry.Builder
+	entry.Directory == build.source.entry.Directory
+	entry.File == build.source.entry.File
 }
 
 bad_provenance_statements contains statement if {
@@ -221,7 +483,7 @@ array_field_does_not_contain(statement, field, expected, type) := v if {
 is_not_violation(statement, field, expected, actual, type) := {
 	"type": type,
 	"description": sprintf("%v is not %v", [field, expected]),
-	"attestation": statement,
+	# "attestation": statement,
 	"details": {
 		"field": field,
 		"actual": actual,
