@@ -44,15 +44,16 @@ provenance_attestations contains att if {
 	some att in result.value
 }
 
-provenance_signed_statements contains statement if {
+provenance_statements contains statement if {
 	some att in provenance_attestations
 	result := verify_attestation(att)
 	not result.error
 	statement := result.value
+	statement.predicateType == "https://slsa.dev/provenance/v1"
 }
 
 provenance_subjects contains subject if {
-	some statement in provenance_signed_statements
+	some statement in provenance_statements
 	some subject in statement.subject
 }
 
@@ -136,14 +137,7 @@ provenance_statement_violations[statement_id] contains v if {
 }
 
 provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	statement.predicateType != "https://slsa.dev/provenance/v1"
-	v := is_not_violation(statement, "predicateType", "https://slsa.dev/provenance/v1", statement.predicateType, "wrong_predicate_type")
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
+	some statement in provenance_statements
 	statement_id := id(statement)
 	predicate := statement.predicate
 	expected := "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1"
@@ -152,10 +146,9 @@ provenance_statement_violations[statement_id] contains v if {
 }
 
 provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
+	some statement in provenance_statements
 	statement_id := id(statement)
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	not build_info_response(meta_commit)
+	not build_info(statement)
 
 	v := {
 		"type": "build_info_request_failed",
@@ -166,158 +159,21 @@ provenance_statement_violations[statement_id] contains v if {
 }
 
 provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
+	some statement in provenance_statements
 	statement_id := id(statement)
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	response := build_info_response(meta_commit)
-	response.status_code != 200
+	not build_definition(statement)
 
 	v := {
-		"type": "build_info_bad_response",
-		"description": "Got a bad response fetching build info for this statement",
-		# "attestation": statement,
-		"details": {
-			"predicate_type": statement.predicateType,
-			"response": response,
-		},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	response := build_info_response(meta_commit)
-	response.status_code == 200
-	builds_json := response.body
-	not builds_json[build_id]
-
-	v := {
-		"type": "no_such_build_id",
-		"description": sprintf("Can't find build id %v for this statement", [build_id]),
-		# "attestation": statement,
-		"details": {
-			"predicate_type": statement.predicateType,
-			"build_id": build_id,
-		},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	not submodule_info_response(meta_commit)
-
-	v := {
-		"type": "submodule_info_request_failed",
-		"description": "Can't find official-images submodule info for this statement",
+		"type": "build_definition_request_failed",
+		"description": "Error fetching build definition for this statement",
 		# "attestation": statement,
 		"details": {"predicate_type": statement.predicateType},
 	}
 }
 
 provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
+	some statement in provenance_statements
 	statement_id := id(statement)
-	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	response := submodule_info_response(meta_commit)
-	response.status_code != 200
-
-	v := {
-		"type": "submodule_info_bad_response",
-		"description": "Got a bad response fetching submodule info for this statement",
-		# "attestation": statement,
-		"details": {"predicate_type": statement.predicateType},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	response := submodule_info_response(meta_commit)
-	response.status_code == 200
-	submodule_info := response.body
-	submodule_info.type != "submodule"
-
-	v := {
-		"type": "submodule_info_bad_response",
-		"description": "Not a submodule",
-		# "attestation": statement,
-		"details": {
-			"predicate_type": statement.predicateType,
-			"submodule_info": submodule_info,
-		},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	response := submodule_info_response(meta_commit)
-	response.status_code == 200
-	submodule_info := response.body
-	submodule_info.submodule_git_url != "https://github.com/docker-library/official-images.git"
-
-	v := {
-		"type": "submodule_info_bad_response",
-		"description": "Wrong repo",
-		# "attestation": statement,
-		"details": {
-			"predicate_type": statement.predicateType,
-			"submodule_info": submodule_info,
-		},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	doi_commit := submodule_sha(meta_commit)
-	not definition_file_response_response(input.familiar_name, doi_commit)
-
-	v := {
-		"type": "definition_file_request_failed",
-		"description": "Request failed",
-		# "attestation": statement,
-		"details": {"predicate_type": statement.predicateType},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	build_id := statement.predicate.buildDefinition.externalParameters.inputs.buildId
-	meta_commit := meta_commit_from_predicate(statement.predicate)
-	doi_commit := submodule_sha(meta_commit)
-	response := definition_file_response_response(input.familiar_name, doi_commit)
-	definition_file := response.raw_body
-	result := attest.internals.parse_library_definition(definition_file)
-	result.error
-
-	v := {
-		"type": "definition_file_parse_failed",
-		"description": "Parse failed",
-		# "attestation": statement,
-		"details": {
-			"predicate_type": statement.predicateType,
-			"error": result.error,
-		},
-	}
-}
-
-provenance_statement_violations[statement_id] contains v if {
-	some statement in provenance_signed_statements
-	statement_id := id(statement)
-	meta_commit := meta_commit_from_predicate(statement.predicate)
 
 	build := build_info(statement)
 	definition := build_definition(statement)
@@ -332,7 +188,9 @@ provenance_statement_violations[statement_id] contains v if {
 		# "attestation": statement,
 		"details": {
 			"predicate_type": statement.predicateType,
-			"expectedEntry": build.source.entry,
+			"expected_entry": build.source.entry,
+			"expected_tag": input.tag,
+			"actual_entries": definition.Entries,
 		},
 	}
 }
@@ -348,12 +206,12 @@ valid_entry(entry, build) if {
 }
 
 bad_provenance_statements contains statement if {
-	some statement in provenance_signed_statements
+	some statement in provenance_statements
 	statement_id := id(statement)
 	provenance_statement_violations[statement_id]
 }
 
-good_provenance_statements := provenance_signed_statements - bad_provenance_statements
+good_provenance_statements := provenance_statements - bad_provenance_statements
 
 sbom_attestations contains att if {
 	result := attest.fetch("https://spdx.dev/Document")
