@@ -122,8 +122,40 @@ The combination of expectations from library manifest files and GHA workflow con
          1. Map the statement `subject` package name (e.g. `pkg:docker/hello-world`) to the library manifest file (e.g. [docker-library/official-images/library/hello-world](https://github.com/docker-library/official-images/blob/master/library/hello-world))
          2. Compare the contents of the library manifest file (source of truth) to the contents of the build metadata (obtained from `builds.json`)
             1. Verify that `GitRepo`, `GitCommit`, `GitFetch`, `Directory`, and `File` for the build match what is expected from the library manifest file
-            2. Verify all tags for subject references in the statement match expected tags for the artifact as defined in the library manifest file
                > :warning: **Warning:** These values are often unique to the specific platform and tag of the image build and must be appropriately parsed and selected from the manifest
+            2. Calculate the [reproducibleGitChecksum](#doi-build-reproducible-git-checksum) and verify it against the value in the build metadata
+                > :memo: **Note:** `GitCommit` can fail the check and `reproducibleGitChecksum` pass, in this case the build is considered valid because the build context is the same for both `GitCommit` values.
+            3. Verify all tags for subject references in the statement match expected tags for the artifact as defined in the library manifest file
+
+#### DOI build reproducible git checksum
+
+The source repository build context for each build can be identified by a digest of the git archive contents at the specified `GitRepo`, `GitCommit`, `GitFetch`, and `Directory` for a DOI build. This value is known as the `reproducibleGitChecksum`.
+
+To calculate the value of `reproducibleGitChecksum`:
+
+Prerequisites:
+
+1. `git` version >= [2.40.0](https://git-scm.com/docs/git-archive/2.40.0)
+1. tar scrubber to strip `uname` and `gname` headers (e.g. [tar-scrubber.go](./tar-scrubber.go))
+
+Steps:
+
+1. Clone the source repository at `GitRepo` from the library manifest file
+2. Run `git archive` and scrub the tar output, using `GitCommit` and `Directory` from the library manifest file
+   ```console
+   git archive --format=tar --mtime='1970-01-01 00:00:00Z' <GitCommit>:<Directory> | go run tar-scrubber.go | sha256sum
+   ```
+
+Example:
+
+```console
+git clone https://github.com/docker-library/hello-world.git
+```
+
+```console
+git archive --format=tar --mtime='1970-01-01 00:00:00Z' 3fb6ebca4163bf5b9cc496ac3e8f11cb1e754aee:amd64/hello-world | go run tar-scrubber.go | sha256sum
+22266b0a36deee72428cffd00859ce991f1db101260999c40904ace7d634b788
+```
 
 ### Verification Summary Attestations
 
