@@ -14,6 +14,8 @@ Applicable builds are limited to the following image platforms:
 - `linux/amd64`
 - `linux/386`
 
+The list of all applicable images can be found in [subset.txt](https://github.com/docker-library/meta/blob/HEAD/subset.txt).
+
 ## Build Level Assertion
 
 The DOI build platform can be trusted to produce Build Level 3 artifacts on images that are built by the `meta` GHA workflow due to the strengthened unforgeability and isolation controls for provenance generation as detailed in the following sections.
