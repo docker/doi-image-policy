@@ -2,7 +2,7 @@
 
 This is a self-evaluation of the [SLSA v1.0](https://slsa.dev/spec/v1.0/) build level for Docker Official Images (DOI) GitHub Actions (GHA) Workflow trusted builder.
 
-| Builder ID | `https://github.com/docker-library/meta/.github/workflows/build.yml@refs/heads/subset` |
+| Builder ID | `https://github.com/docker-library/meta/.github/workflows/build.yml@refs/heads/main` |
 | ---------- | -------------------------------------------------------------------------------------- |
 
 ## Applicability
@@ -33,7 +33,7 @@ Build platform components are defined according to the [SLSA v1.0 spec terminolo
 
 #### Control Plane
 
-The control plane for the DOI GHA workflow builder is the [meta GHA workflow file](https://github.com/docker-library/meta/blob/subset/.github/workflows/build.yml).
+The control plane for the DOI GHA workflow builder is the [meta GHA workflow file](https://github.com/docker-library/meta/blob/HEAD/.github/workflows/build.yml).
 
 This GHA workflow orchestrates each build stage and is operated by administrators that have privilege to modify the control plane.
 The workflow is made available to the public for transparency and is version controlled in git with branch protection controls requiring two person review by maintainers of the DOI build platform.
