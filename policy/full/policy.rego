@@ -48,7 +48,10 @@ provenance_statements contains statement if {
 	some att in provenance_attestations
 	result := verify_attestation(att)
 	not result.error
-	statement := result.value
+
+	# adds the descriptor to the statement so that we can use it in the output
+	statement := json.patch(result.value, [{"op": "add", "path": "/descriptor", "value": att.resourceDescriptor}])
+
 	statement.predicateType == "https://slsa.dev/provenance/v1"
 }
 
@@ -156,7 +159,7 @@ provenance_statement_violations[statement_id] contains v if {
 	v := {
 		"type": "build_info_request_failed",
 		"description": "Error fetching build info for this statement",
-		# "attestation": statement,
+		"attestation": statement,
 		"details": {"predicate_type": statement.predicateType},
 	}
 }
@@ -169,7 +172,7 @@ provenance_statement_violations[statement_id] contains v if {
 	v := {
 		"type": "build_definition_request_failed",
 		"description": "Error fetching build definition for this statement",
-		# "attestation": statement,
+		"attestation": statement,
 		"details": {"predicate_type": statement.predicateType},
 	}
 }
@@ -181,14 +184,15 @@ provenance_statement_violations[statement_id] contains v if {
 	build := build_info(statement)
 	definition := build_definition(statement)
 
-	# TODO: should this instead check that *all* tags in the entry match *all* tags in the subjects?
+	# TODO: we should instead check that there are valid definition entries for *all* tags in the subjects
 	relevant_definition_entries := {e | some e in definition.Entries; definition_entry_for_tags(e, input.tag)}
 
 	# TODO: can there ever be more than one matching entry after the above check?
+	# i.e., can there be multiple entries with the same tag?
 
 	# the idea here is to perform the quick checks first and then the expensive checks
 	# so that we can bail out fast if the entry matches
-	# TODO: check that this is actually what happens
+	# TODO: make sure that this is actually what happens
 	every definition_entry in relevant_definition_entries {
 		not matching_entry(definition_entry, build.source.entry, build.build.arch)
 		not matching_git_checksum(definition_entry, build.source.reproducibleGitChecksum, build.build.arch)
@@ -197,7 +201,7 @@ provenance_statement_violations[statement_id] contains v if {
 	v := {
 		"type": "no_matching_entry",
 		"description": "No matching entry in the build definition for this build",
-		# "attestation": statement,
+		"attestation": statement,
 		"details": {
 			"predicate_type": statement.predicateType,
 			"expected_entry": build.source.entry,
@@ -248,6 +252,11 @@ bad_provenance_statements contains statement if {
 
 good_provenance_statements := provenance_statements - bad_provenance_statements
 
+good_provenance_attestation_descriptors contains desc if {
+	some good_statement in good_provenance_statements
+	desc := good_statement.descriptor
+}
+
 global_violations contains v if {
 	not input.parameters.github_token
 	v := {
@@ -282,6 +291,7 @@ result := {
 	"violations": all_violations,
 	"summary": {
 		"subjects": provenance_subjects,
+		"input_attestations": good_provenance_attestation_descriptors,
 		"slsa_levels": ["SLSA_BUILD_LEVEL_3"],
 		"verifier": "docker-official-images",
 		"policy_uri": "https://docker.com/official/policy/v0.1",
@@ -313,7 +323,7 @@ array_field_does_not_contain(statement, field, expected, type) := v if {
 is_not_violation(statement, field, expected, actual, type) := {
 	"type": type,
 	"description": sprintf("%v is not %v", [field, expected]),
-	# "attestation": statement,
+	"attestation": statement,
 	"details": {
 		"field": field,
 		"actual": actual,

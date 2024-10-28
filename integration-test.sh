@@ -43,11 +43,12 @@ function stop_registry () {
     docker stop registry
 }
 
-function sign_image () {
+function sign_provenance () {
     echo "Signing the attestations on $INPUT_IMAGE and storing in $REFERRERS_REPO..."
-    ./image-signer-verifier.sh sign -i "$INPUT_IMAGE" \
+    ./image-signer-verifier.sh attest -i "$INPUT_IMAGE" \
+      --statement /testdata/busybox_provenance.json \
       --referrers-dest "$REFERRERS_REPO" \
-      --kms-key-ref "$AWS_KMS_ARN" --kms-region "$AWS_REGION"
+      --kms-key-ref "$AWS_KMS_ARN" --kms-region "$AWS_REGION" -D
 }
 
 function verify_image () {
@@ -57,7 +58,8 @@ function verify_image () {
       --referrers-source "$REFERRERS_REPO" \
       --vsa --kms-key-ref "$AWS_KMS_ARN" \
       --kms-region "$AWS_REGION" --tuf=false --policy-dir "$POLICY_PATH" --platform "linux/amd64" \
-      --policy-id "$POLICY_ID"
+      --policy-id "$POLICY_ID" \
+      --parameters "github_token=$GITHUB_TOKEN" -D
 }
 
 function verify_image_vsa () {
@@ -79,9 +81,10 @@ if [ -z "$AWS_SESSION_TOKEN" ]; then
 fi
 AWS_KMS_ARN=${AWS_KMS_ARN:-"arn:aws:kms:us-east-1:175142243308:alias/doi-signing"}
 
-TEST_IMAGE_REPO="nginx"
-TEST_IMAGE_TAG="1.27.0-alpine-slim"
-INPUT_IMAGE="docker://$TEST_IMAGE_REPO:$TEST_IMAGE_TAG"
+TEST_IMAGE_REPO="busybox"
+TEST_IMAGE_TAG="1.37.0"
+TEST_IMAGE_DIGEST="22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+INPUT_IMAGE="docker://$TEST_IMAGE_REPO:$TEST_IMAGE_TAG@sha256:$TEST_IMAGE_DIGEST"
 REFERRERS_REPO="docker://localhost:5000/$TEST_IMAGE_REPO"
 POLICY_PATH="policy"
 POLICY_ID="docker-official-images"
@@ -93,7 +96,7 @@ login_to_aws
 start_registry
 trap stop_registry EXIT
 
-sign_image
+sign_provenance
 verify_image
 verify_image_vsa
 
