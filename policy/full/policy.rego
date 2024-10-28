@@ -248,61 +248,6 @@ bad_provenance_statements contains statement if {
 
 good_provenance_statements := provenance_statements - bad_provenance_statements
 
-sbom_attestations contains att if {
-	result := attest.fetch("https://spdx.dev/Document")
-	not result.error
-	some att in result.value
-}
-
-sbom_signed_statements contains statement if {
-	some att in sbom_attestations
-	result := verify_attestation(att)
-	not result.error
-	statement := result.value
-}
-
-sbom_subjects contains subject if {
-	some statement in sbom_signed_statements
-	some subject in statement.subject
-}
-
-# we need to key this by statement_id rather than statement because we can't
-# use an object as a key due to a bug(?) in OPA: https://github.com/open-policy-agent/opa/issues/6736
-sbom_statement_violations[statement_id] contains v if {
-	some att in sbom_attestations
-	result := verify_attestation(att)
-	err := result.error
-	statement := unsafe_statement_from_attestation(att)
-	statement_id := id(statement)
-	v := {
-		"type": "unsigned_statement",
-		"description": sprintf("Statement is not correctly signed: %v", [err]),
-		"attestation": statement,
-		"details": {"error": err},
-	}
-}
-
-sbom_statement_violations[statement_id] contains v if {
-	some statement in sbom_signed_statements
-	statement_id := id(statement)
-	statement.predicate_type != "https://spdx.dev/Document"
-	v := is_not_violation(statement, "predicateType", "https://spdx.dev/Document", statement.predicate_type, "wrong_predicate_type")
-}
-
-sbom_statement_violations[statement_id] contains v if {
-	some statement in sbom_signed_statements
-	statement_id := id(statement)
-	v := field_value_does_not_equal(statement, "SPDXID", "SPDXRef-DOCUMENT", "wrong_spdx_id")
-}
-
-bad_sbom_statements contains statement if {
-	some statement in sbom_signed_statements
-	statement_id := id(statement)
-	sbom_statement_violations[statement_id]
-}
-
-good_sbom_statements := sbom_signed_statements - bad_sbom_statements
-
 global_violations contains v if {
 	not input.parameters.github_token
 	v := {
@@ -328,22 +273,15 @@ all_violations contains v if {
 }
 
 all_violations contains v if {
-	some violations in sbom_statement_violations
-	some v in violations
-}
-
-all_violations contains v if {
 	some violations in provenance_statement_violations
 	some v in violations
 }
-
-subjects := union({sbom_subjects, provenance_subjects})
 
 result := {
 	"success": allow,
 	"violations": all_violations,
 	"summary": {
-		"subjects": subjects,
+		"subjects": provenance_subjects,
 		"slsa_levels": ["SLSA_BUILD_LEVEL_3"],
 		"verifier": "docker-official-images",
 		"policy_uri": "https://docker.com/official/policy/v0.1",
@@ -353,7 +291,6 @@ result := {
 default allow := false
 
 allow if {
-	# count(good_sbom_statements) > 0
 	count(good_provenance_statements) > 0
 }
 
