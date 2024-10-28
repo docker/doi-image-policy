@@ -11,7 +11,8 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-isv_image="docker/image-signer-verifier:0.5.20@sha256:c3017e07df0b5c0f7f50c0f73fef866ce673a780c59c201f1b564f83b5d5fb93"
+
+isv_image="docker/image-signer-verifier:0.6.11@sha256:1da7bf832736db04e9913dc191b1b7e539e1aa317cb2eba5ff277cdf6e26528a"
 #isv_image="isv:latest"
 
 mkdir -p $HOME/.local/tmp/sigstore
@@ -28,6 +29,7 @@ docker run \
   -v $HOME/.local/tmp/sigstore:/.sigstore \
   -v $HOME/.aws:/.aws:ro \
   -v $PWD/policy:/policy \
+  -v $PWD/testdata:/testdata \
   -u $(id -u):$(id -g) \
   --network host \
   $isv_image \

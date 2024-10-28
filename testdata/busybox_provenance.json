@@ -1,0 +1,177 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:1.37.0?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:1.37?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:1?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:1.37.0-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:1.37-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:1-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:latest?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:unstable?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/busybox:unstable-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:1.37.0?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:1.37?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:1?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:1.37.0-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:1.37-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:1-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:latest?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:unstable?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/amd64/busybox:unstable-glibc?platform=linux%2Famd64"
+    },
+    {
+      "digest": {
+        "sha256": "22f27168517de1f58dae0ad51eacf1527e7e7ccc47512d3946f56bdbe913f564"
+      },
+      "name": "pkg:docker/oisupport/staging-amd64:e1dc43214da28419a105a665f994080e83093c6849fe2851344350b8c264afd1?platform=linux%2Famd64"
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://actions.github.io/buildtypes/workflow/v1",
+      "externalParameters": {
+        "inputs": {
+          "bashbrewArch": "amd64",
+          "buildId": "e1dc43214da28419a105a665f994080e83093c6849fe2851344350b8c264afd1",
+          "firstTag": "busybox:1.37.0",
+          "pruneArtifact": "false"
+        },
+        "workflow": {
+          "digest": {
+            "gitCommit": "5c3af85f2c735ea2b689271cb64ff38bcca28bec"
+          },
+          "path": ".github/workflows/build.yml",
+          "ref": "refs/heads/main",
+          "repository": "https://github.com/docker-library/meta"
+        }
+      },
+      "internalParameters": {
+        "github": {
+          "event_name": "workflow_dispatch",
+          "repository_id": "852974745",
+          "repository_owner_id": "5429470",
+          "runner_environment": "github-hosted"
+        }
+      },
+      "resolvedDependencies": [
+        {
+          "digest": {
+            "gitCommit": "5c3af85f2c735ea2b689271cb64ff38bcca28bec"
+          },
+          "uri": "git+https://github.com/docker-library/meta@refs/heads/main"
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "https://github.com/docker-library/meta/.github/workflows/build.yml@refs/heads/main"
+      },
+      "metadata": {
+        "invocationId": "https://github.com/docker-library/meta/actions/runs/11483263454/attempts/1"
+      }
+    }
+  }
+}
