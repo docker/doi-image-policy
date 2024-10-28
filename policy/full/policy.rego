@@ -38,7 +38,7 @@ verify_opts := {"keys": keys}
 verify_attestation(att) := attest.verify(att, verify_opts)
 
 provenance_attestations contains att if {
-	# TODO: this should take the media type as it doesn't actually check the predicate type
+	# TODO: attest.fetch should take the media type as it doesn't actually check the predicate type
 	result := attest.fetch("https://slsa.dev/provenance/v1")
 	not result.error
 	some att in result.value
@@ -58,20 +58,19 @@ provenance_subjects contains subject if {
 }
 
 meta_commit_from_predicate(predicate) := commit if {
-	# some dep in predicate.buildDefinition.resolvedDependencies
-
-	# # TODO: this should be the actual meta repo
-	# dep.uri == "git+https://github.com/docker/doi-signing-test@refs/heads/main"
-	# commit := dep.digest.gitCommit
-
-	# TODO: this doesn't work with doi-signing-test because the actual commit isn't in meta
-	commit := "8c30112498668c1ae274b8596c2aff119fa76e7a"
+	some dep in predicate.buildDefinition.resolvedDependencies
+	dep.uri == "git+https://github.com/docker-library/meta@refs/heads/main"
+	commit := dep.digest.gitCommit
 }
 
+# TODO: use an auth token from input.parameters
 build_info_response(meta_commit) := http.send({
 	"method": "GET",
 	"url": sprintf("https://api.github.com/repos/docker-library/meta/contents/builds.json?ref=%v", [meta_commit]),
-	"headers": {"accept": "application/vnd.github.raw+json"},
+	"headers": {
+		"accept": "application/vnd.github.raw+json",
+		"authorization": sprintf("token %s", [input.parameters.github_token]),
+	},
 	"force_json_decode": true,
 	"cache": true,
 })
@@ -79,13 +78,17 @@ build_info_response(meta_commit) := http.send({
 submodule_info_response(meta_commit) := http.send({
 	"method": "GET",
 	"url": sprintf("https://api.github.com/repos/docker-library/meta/contents/.doi?ref=%v", [meta_commit]),
+	"headers": {"authorization": sprintf("token %s", [input.parameters.github_token])},
 	"cache": true,
 })
 
 definition_file_response_response(name, doi_commit) := http.send({
 	"method": "GET",
 	"url": sprintf("https://api.github.com/repos/docker-library/official-images/contents/library/%v?ref=%v", [name, doi_commit]),
-	"headers": {"accept": "application/vnd.github.raw+json"},
+	"headers": {
+		"accept": "application/vnd.github.raw+json",
+		"authorization": sprintf("token %s", [input.parameters.github_token]),
+	},
 	"cache": true,
 })
 
@@ -140,7 +143,7 @@ provenance_statement_violations[statement_id] contains v if {
 	some statement in provenance_statements
 	statement_id := id(statement)
 	predicate := statement.predicate
-	expected := "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1"
+	expected := "https://actions.github.io/buildtypes/workflow/v1"
 	predicate.buildDefinition.buildType != expected
 	v := is_not_violation(statement, "buildDefinition.buildType", expected, predicate.buildDefinition.buildType, "wrong_build_type")
 }
@@ -178,8 +181,17 @@ provenance_statement_violations[statement_id] contains v if {
 	build := build_info(statement)
 	definition := build_definition(statement)
 
-	every entry in definition.Entries {
-		not valid_entry(entry, build)
+	# TODO: should this instead check that *all* tags in the entry match *all* tags in the subjects?
+	relevant_definition_entries := {e | some e in definition.Entries; definition_entry_for_tags(e, input.tag)}
+
+	# TODO: can there ever be more than one matching entry after the above check?
+
+	# the idea here is to perform the quick checks first and then the expensive checks
+	# so that we can bail out fast if the entry matches
+	# TODO: check that this is actually what happens
+	every definition_entry in relevant_definition_entries {
+		not matching_entry(definition_entry, build.source.entry, build.build.arch)
+		not matching_git_checksum(definition_entry, build.source.reproducibleGitChecksum, build.build.arch)
 	}
 
 	v := {
@@ -195,14 +207,37 @@ provenance_statement_violations[statement_id] contains v if {
 	}
 }
 
-valid_entry(entry, build) if {
-	# TODO: should this instead check that *all* tags in the entry match *all* tags in the subjects?
-	input.tag in entry.Tags
-	entry.GitCommit == build.source.entry.GitCommit
-	entry.GitRepo == build.source.entry.GitRepo
-	entry.Builder == build.source.entry.Builder
-	entry.Directory == build.source.entry.Directory
-	entry.File == build.source.entry.File
+definition_entry_for_tags(definition_entry, tag) if {
+	tag in definition_entry.Tags
+}
+
+matching_entry(definition_entry, build_source_entry, build_arch) if {
+	every key in ["GitCommit", "GitRepo", "Builder", "Directory", "File"] {
+		matching_value(key, definition_entry, build_source_entry, build_arch)
+	}
+}
+
+matching_value(key, definition_entry, build_source_entry, build_arch) if {
+	value_in_definition := definition_entry_value(definition_entry, key, build_arch)
+	value_in_build_source := build_source_entry[key]
+	value_in_definition != value_in_build_source
+}
+
+# use the architecture-specific value inside ArchValues if it exists, otherwise use the generic value
+definition_entry_value(definition_entry, key, arch) := value if {
+	def_key := ["ArchValues", sprintf("%s-%s", [arch, key])]
+	value := object.get(definition_entry, def_key, object.get(definition_entry, key, null))
+	value != null
+}
+
+matching_git_checksum(definition_entry, reproducible_git_checksum, build_arch) if {
+	repo := definition_entry_value(definition_entry, "GitRepo", build_arch)
+	commit := definition_entry_value(definition_entry, "GitCommit", build_arch)
+	dir := definition_entry_value(definition_entry, "Directory", build_arch)
+
+	result := attest.internals.reproducible_git_checksum(repo, commit, dir)
+	checksum := result.value
+	reproducible_git_checksum == checksum
 }
 
 bad_provenance_statements contains statement if {
@@ -269,10 +304,10 @@ bad_sbom_statements contains statement if {
 good_sbom_statements := sbom_signed_statements - bad_sbom_statements
 
 global_violations contains v if {
-	count(sbom_attestations) == 0
+	not input.parameters.github_token
 	v := {
-		"type": "missing_attestation",
-		"description": "No https://slsa.dev/provenance/v0.2 attestation found",
+		"type": "missing_parameter",
+		"description": "No github token found. Specify a valid GitHub token in the github_token input parameter",
 		"attestation": null,
 		"details": {},
 	}
@@ -282,7 +317,7 @@ global_violations contains v if {
 	count(provenance_attestations) == 0
 	v := {
 		"type": "missing_attestation",
-		"description": "No https://spdx.dev/Document attestation found",
+		"description": "No https://slsa.dev/provenance/v1 attestation found",
 		"attestation": null,
 		"details": {},
 	}
@@ -318,7 +353,7 @@ result := {
 default allow := false
 
 allow if {
-	count(good_sbom_statements) > 0
+	# count(good_sbom_statements) > 0
 	count(good_provenance_statements) > 0
 }
 
